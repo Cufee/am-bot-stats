@@ -1,1 +1,10 @@
+# VSCode settings and dev container
 .devcontainer
+.vscode
+.tmp
+
+# Build cache
+build
+
+# All files marked as local
+*local.*
