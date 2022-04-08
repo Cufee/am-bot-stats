@@ -8,3 +8,5 @@ build
 
 # All files marked as local
 *local.*
+.env
+tmp

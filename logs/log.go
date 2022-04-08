@@ -16,3 +16,11 @@ var Logger = &logrus.Logger{
 func Info(args ...interface{}) {
 	Logger.Info(args...)
 }
+
+func Debug(args ...interface{}) {
+	Logger.Debug(args...)
+}
+
+func Error(args ...interface{}) {
+	Logger.Error(args...)
+}

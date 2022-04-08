@@ -7,19 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
-
-var applicationApiKey string
-
-func init() {
-	applicationApiKey = os.Getenv("APPLICATION_API_KEY")
-	if applicationApiKey == "" {
-		panic("APPLICATION_API_KEY is not set")
-	}
-}
 
 // HTTP client
 var clientHTTP = &http.Client{Timeout: 20 * time.Second}

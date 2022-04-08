@@ -1,44 +1,54 @@
 package main
 
 import (
-	"os"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
-	commandutils "aftermath.link/repo/am-bot-stats/command-utils"
 	"aftermath.link/repo/am-bot-stats/commands"
+
+	"aftermath.link/repo/am-bot-stats/config"
 	"aftermath.link/repo/am-bot-stats/logs"
 	"github.com/andersfylling/disgord"
 	"github.com/andersfylling/disgord/std"
+	"github.com/byvko-dev/am-core/discord/router"
+	"github.com/byvko-dev/am-core/helpers/env"
 )
 
 type botSettings struct {
-	Name   string
 	Prefix string
 	token  string
+	status string
 }
 
 func (b *botSettings) loadToken() {
-	b.token = getToken()
-}
-
-func getToken() string {
-	if os.Getenv("DISCORD_TOKEN") != "" {
-		return os.Getenv("DISCORD_TOKEN")
-	}
-	panic("DISCORD_TOKEN not set")
+	b.token = config.DiscordToken
 }
 
 func (b *botSettings) loadSettings() {
-	if os.Getenv("BOT_PREFIX") != "" {
-		b.Prefix = os.Getenv("BOT_PREFIX")
-	} else {
-		b.Prefix = "!"
-		logs.Info("BOT_PREFIX not set, using default: " + b.Prefix)
+	b.Prefix = config.DiscordCommandPrefix
+	b.status = config.DiscordBotStatus
+}
+
+func loadShardingConfig() disgord.ShardConfig {
+	envs := env.MustGet("SHARDS_COUNT", "SHARDS_LIST")
+	shards, err := strconv.Atoi(envs[0].(string))
+	if err != nil {
+		panic(err)
 	}
-	if os.Getenv("BOT_NAME") != "" {
-		b.Name = os.Getenv("BOT_NAME")
-	} else {
-		b.Name = "GoBot"
-		logs.Info("BOT_NAME not set, using default: " + b.Name)
+	servingShardsStr := strings.Split(envs[1].(string), ",")
+	servingShards := make([]uint, len(servingShardsStr))
+	for i, v := range servingShardsStr {
+		s, err := strconv.Atoi(v)
+		if err != nil {
+			panic(err)
+		}
+		servingShards[i] = uint(s)
+	}
+	return disgord.ShardConfig{
+		ShardCount: uint(shards),
+		ShardIDs:   servingShards,
 	}
 }
 
@@ -52,49 +62,37 @@ func main() {
 	bot.loadSettings()
 
 	client := disgord.New(disgord.Config{
-		ProjectName: bot.Name,
-		BotToken:    bot.token,
-		Logger:      logs.Logger,
-		RejectEvents: []string{
-			// rarely used, and causes unnecessary spam
-			disgord.EvtTypingStart,
-
-			// these require special privilege
-			// https://discord.com/developers/docs/topics/gateway#privileged-intents
-			disgord.EvtPresenceUpdate,
-			disgord.EvtGuildMemberAdd,
-			disgord.EvtGuildMemberUpdate,
-			disgord.EvtGuildMemberRemove,
-		},
-		// ! Non-functional due to a current bug, will be fixed.
-		Presence: &disgord.UpdateStatusPayload{
-			Game: &disgord.Activity{
-				Name: "write " + bot.Prefix + "ping",
-			},
-		},
-		DMIntents: disgord.IntentDirectMessages | disgord.IntentDirectMessageReactions | disgord.IntentDirectMessageTyping,
-		// also listen for direct messages
-
+		BotToken:           bot.token,
+		Logger:             logs.Logger,
+		LoadMembersQuietly: true,
+		ShardConfig:        loadShardingConfig(),
+		Intents:            disgord.AllIntentsExcept(disgord.IntentGuildPresences, disgord.IntentGuildMembers, disgord.IntentGuildMessageTyping, disgord.IntentDirectMessageTyping),
 	})
 
 	defer client.Gateway().StayConnectedUntilInterrupted()
-
-	logFilter, _ := std.NewLogFilter(client)
-	filter, _ := std.NewMsgFilter(commandutils.RouterCtx, client)
+	// logFilter, _ := std.NewLogFilter(client) // Disabled to not log message content
+	filter, _ := std.NewMsgFilter(router.RouterCtx, client)
 	filter.SetPrefix(bot.Prefix)
 
 	// create a handler and bind it to new message events
-	// thing about the middlewares are whitelists or passthrough functions.
 	client.Gateway().WithMiddleware(
-		filter.NotByBot,    // ignore bot messages
-		filter.HasPrefix,   // message must have the given prefix
-		logFilter.LogMsg,   // log command message
+		filter.NotByBot,  // ignore bot messages
+		filter.HasPrefix, // message must have the given prefix
+		// logFilter.LogMsg,   // log command message
 		filter.StripPrefix, // remove the command prefix from the message
-	).MessageCreate(commandutils.CommandRouter)
+	).MessageCreate(router.CommandRouter(commands.Options))
 
-	// create a handler and bind it to the bot init
-	// dummy log print
 	client.Gateway().BotReady(func() {
+		// router.RegisterSlashCommands(client)
+
+		client.UpdateStatusString(bot.status)
 		logs.Info("Bot is ready!")
+
+		go func() {
+			time.Sleep(time.Second * 30)
+			guilds := client.GetConnectedGuilds()
+			logs.Info(fmt.Sprintf("Connected to %v guilds", len(guilds)))
+		}()
 	})
+	// router.AddSlashCommandsHandlers(commands.Options)(client) // Registering slash commands does not work correctly
 }

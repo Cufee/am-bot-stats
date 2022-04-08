@@ -1,6 +1,6 @@
 SERVICE := am-bot-stats
-NAMESPACE := aftermath
-REGISTRY := docker.io/vkouzin
+NAMESPACE := aftermath-bot
+REGISTRY := ghcr.io/byvko-dev
 # 
 VERSION = $(shell git rev-parse --short HEAD)
 TAG := ${REGISTRY}/${SERVICE}
@@ -12,18 +12,13 @@ pull:
 	git pull
 
 build:
-	docker build -t ${TAG}:${VERSION} .
-	docker tag ${TAG}:${VERSION} ${TAG}:latest
+	go mod tidy
+	go mod vendor
+	docker build -t ${TAG}:${VERSION} -t ${TAG}:latest .
 	docker image prune -f
 
 push:
 	docker push ${TAG}:latest
 
-apply:
-	kubectl apply -f ./_kube-yml
-
 restart:
 	kubectl rollout restart statefulset/${SERVICE} -n ${NAMESPACE}
-
-ctx:
-	kubectl config set-context --current --namespace=${NAMESPACE}
