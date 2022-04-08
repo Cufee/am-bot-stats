@@ -23,7 +23,15 @@ func errorPrinter(locale string, err error) string {
 }
 
 func reportError(ctx router.ErrorContext, err error) {
-	logs.Error(ctx.Command, ": ", err)
+	logs.Error("Error in command %v for %v: ", ctx.Command, ctx.UserID, err)
+	// message := err.Error()
+	// // Fix blank error message
+	// if message == "" {
+	// 	message = "Unknown error"
+	// }
+	// // Mesage on the dev server
+	// reportMsg := fmt.Sprintf("**Error Report:\n**Guild ID: %v\nChannel ID: %v\nUser ID: %v\nMessaged: %v\nError:```%v```User Message:```%v```", guildID, channelID, userID, messagedChan, errMsg, userMsgRaw)
+	// s.ChannelMessageSend(config.ErrorsChanID, reportMsg)
 }
 
 func getUserInfo(id string) (users.CompleteProfile, error) {

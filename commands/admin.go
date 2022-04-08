@@ -15,16 +15,8 @@ var countGuildsOptions = router.RegisterOptions{
 	AddSlashCommand:  false,
 	AddPrefixCommand: true,
 	Name:             "guilds",
-	Description:      "Counts the number of guilds the bot is in",
-	Aliases:          nil,
 	Permissions:      adminOnlyPermissions,
-	Arguments: []router.ArgumentDescription{{
-		Name:        "Name",
-		Type:        disgord.OptionTypeString,
-		Description: "Player name to check",
-	}},
-	Handler:      CountGuildsHandler,
-	ErrorHandler: nil,
+	Handler:          CountGuildsHandler,
 }
 
 func CountGuildsHandler(cmd router.Command) error {
